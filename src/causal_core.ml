@@ -61,16 +61,6 @@ let update_last_tested_to_def i x tbl =
     true
   else false
 
-
-
-(******************************************************************************)
-(* Variables information cache                                                *)
-(******************************************************************************)
-
-type sigma_event_info = {
-  number_added : int
-}
-
 type var_info_table = (var', var_info) Hashtbl.t
 
 (* Cache some informations on how variables are modified *)
@@ -89,6 +79,42 @@ let init_var_infos
           add_set_def_in_t i x var_infos )
   done
 
+
+(******************************************************************************)
+(* Main algorithm                                                             *)
+(******************************************************************************)
+
+(*
+
+The algorithm to compute causal cores is greedy. It works by progressively
+expanding a subset of events sigma as follows:
+
+Initially, sigma only contains the event of interest.
+[Ra] If an event is in sigma, its strong dependencies should be added to sigma
+[Rd] If an event e altering a variable x is in sigma and there is an ulterior
+event in sigma testing x to its default value, then add to sigma the first
+event after e restoring x to its default value.
+
+We stop when no rule can apply. Besides, we can prove the rules are confluent.
+
+Lemma: if no rule can be applied, then sigma yields a valid subtrace
+Proof: it is enough to prove that every dependency is respected.
+This is trivial for strong dependencies. Then, let's suppose
+event e in sigma requires x=0. Then, let's look at the last event before
+e in sigma modifying x (it necesessarily exists, even if it is `init`).
+If it sets x to 0, we're done. Otherwise, the next event in t altering
+x should be in sigma. Because t is valid, this event should come before
+e. Contradiction.
+
+Lemma: if no rule can be applied, sigma strongly matches t (needs regularity)
+
+As opposed as what I once thought, no regularity hypothesis is needed.
+
+*)
+
+type sigma_event_info = {
+  number_added : int
+}
 
 type causal_core = (step_id * sigma_event_info) list
 
@@ -167,7 +193,7 @@ let compute_causal_core
   done ;
 
   let unordered_core = 
-    Int_std_map.fold (fun i info acc -> (i, info) :: acc) !sigma [] in
+      Int_std_map.fold (fun i info acc -> (i, info) :: acc) !sigma [] in
   List.sort (fun x y -> compare (fst x) (fst y)) unordered_core
 
 
@@ -188,21 +214,3 @@ let iter_causal_cores
 
 
  let core_events = List.map fst
-
-
-
-(* Add dependencies recursively *)
-
-(*
-   When adding a new element:
-   + Add the last that modified before [when was v lastly modified]
-   + What are potential dependencies conditioned on something being used
-     var -> deps on this var (int set)
-
-     x -> last test in 2, pairs to close in [3, 5, 9, 14]
-
-     when adding new event to sigma:
-     + add its strong dependencies
-     + add its closing events in the queue or the waiting list
-     + if tests something to its default value: look at waiting closing events
-*)

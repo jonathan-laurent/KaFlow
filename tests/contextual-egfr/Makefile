@@ -17,7 +17,7 @@ output/t.json: output
 	cd output; KaSim -i ../story.ka -i ../egfr.ka -l 4 -trace t.json
 
 ccores: output/t.json
-	cd output; ../../../KaFlow t.json
+	cd output; ../../../KaFlow t.json --eoi-id-in-filename -o "story." --eois ../eois
 	@make pdf
 
 

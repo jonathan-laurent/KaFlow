@@ -18,11 +18,6 @@ let rec range_list a b =
 let random_int_list ~size max =
   List.map (fun () -> Random.int max) (replicate size ())
 
-let rec queue_to_list q = 
-  try
-    let x = Queue.take q in x :: queue_to_list q
-  with Queue.Empty -> []
-
 let rec list_take n = function
   | [] -> []
   | x::xs -> if n <= 0 then [] else x :: list_take (n-1) xs
@@ -31,3 +26,5 @@ module Int = struct
   type t = int
   let compare = compare
 end
+
+let list_of_queue q = List.rev (Queue.fold (fun acc x -> x :: acc) [] q)

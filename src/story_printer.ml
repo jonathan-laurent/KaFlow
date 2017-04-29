@@ -103,21 +103,22 @@ let print_event options env ta grid color_handle f (i, info) =
   
   if options.dump_grid then
     begin
+    (*pr "/* %a */@;" (Trace.print_step ~compact:false ~env:env) ta.(i);*)
     pr "/* EVENT : %d@;" i ;
-    pr "   TESTS : @[<hov>%a@]@;" 
+    pr "   TESTS : @[<hov>%a@]@;"
       (Grid.print_tests env) tests ;
     pr "   MODS  : @[<hov>%a@]@;*/@;" 
       (Grid.print_actions env) actions ;
     end ;
   pr "%d " i ;
 
-
   let annot = 
     begin
       match ta.(i) with
       | Trace.Rule (rule_id, ev, _) ->
         { def_annot with 
-        label = asprintf "%a" (Model.print_ast_rule ~env) rule_id }
+        label = asprintf "%a" (Model.print_ast_rule ~env) 
+          (Model.get_rule env rule_id).Primitives.syntactic_rule }
       | Trace.Obs (obs_name, _, _) ->
         { def_annot with label = obs_name ; shape = "rectangle" }
       | Trace.Init actions ->

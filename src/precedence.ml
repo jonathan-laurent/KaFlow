@@ -62,4 +62,4 @@ let compute_strong_deps
         Hashtbl.replace state (Var x) (c, i) ) in
 
   List.iter process_event (Causal_core.core_events core);
-  queue_to_list deps
+  list_of_queue deps

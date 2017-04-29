@@ -153,8 +153,7 @@ let build_grid (_env : Model.t) (t : Trace.t) =
   in
 
   Array.iteri process_step ta ;
-  (symmetrize_binding_constrs grid, queue_to_list eois)
-
+  (symmetrize_binding_constrs grid, list_of_queue eois)
 
 
 
