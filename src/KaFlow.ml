@@ -8,6 +8,7 @@ let eois_file = ref ""
 let outputs_prefix = ref ""
 let number_after_ev_id = ref false
 let verbose = ref false
+let rule_of_interest = ref ""
 
 let options = [
   ("--max-cores", Arg.Set_int max_cores,
@@ -16,6 +17,8 @@ let options = [
    "file containing custom events of interest");
   ("-o", Arg.Set_string outputs_prefix,
    "name prefix for the output files");
+  ("-r", Arg.Set_string rule_of_interest,
+   "rule of interest");
   ("--eoi-id-in-filename", Arg.Set number_after_ev_id, 
    "include the id of the corresponding event of interest in every causal core filename");
   ("--verbose", Arg.Set verbose,
@@ -68,7 +71,8 @@ let main () =
     let steps = Trace.of_yojson (Yojson.Basic.Util.member "trace" json) in
     let steps_array = Array.of_list steps in
     let () = log "Computing the grid." in
-    let grid, eois = Grid.build_grid env steps in
+    let rule = if !rule_of_interest <> "" then Some !rule_of_interest else None in
+    let grid, eois = Grid.build_grid ~rule env steps in
 
 
     (* In case some custom eois are specified, take these instead of

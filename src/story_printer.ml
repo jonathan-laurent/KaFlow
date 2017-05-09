@@ -117,8 +117,7 @@ let print_event options env ta grid color_handle f (i, info) =
       match ta.(i) with
       | Trace.Rule (rule_id, ev, _) ->
         { def_annot with 
-        label = asprintf "%a" (Model.print_ast_rule ~env) 
-          (Model.get_rule env rule_id).Primitives.syntactic_rule }
+        label = asprintf "%s" (rule_ast_name env rule_id) }
       | Trace.Obs (obs_name, _, _) ->
         { def_annot with label = obs_name ; shape = "rectangle" }
       | Trace.Init actions ->

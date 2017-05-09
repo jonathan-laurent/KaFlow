@@ -120,7 +120,7 @@ let symmetrize_binding_constrs g =
   Array.map aux g
 
 
-let build_grid (_env : Model.t) (t : Trace.t) =
+let build_grid ?(rule=None) (env : Model.t) (t : Trace.t) =
 
   let ta = Array.of_list t in
   let n = Array.length ta in
@@ -145,9 +145,11 @@ let build_grid (_env : Model.t) (t : Trace.t) =
     | Trace.Init actions ->
       let mods = translate_actions actions in
       write_row i []  mods
-    | Trace.Rule (_, ev, _) -> process_event i ev
+    | Trace.Rule (rule_id, ev, _) -> 
+      if Some (Causal_core_util.rule_ast_name env rule_id) = rule then Queue.push i eois ;
+      process_event i ev
     | Trace.Obs (_, tests, _) ->
-      Queue.push i eois ;
+      if rule = None then Queue.push i eois ;
       write_row i (translate_tests global_state (List.concat tests)) []
     | Trace.Pert (_, ev, _) -> process_event i ev
   in

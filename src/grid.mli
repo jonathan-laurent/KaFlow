@@ -20,7 +20,7 @@ type constrs = constr list
 type grid = (constrs * constrs) array
 type t = grid
 
-val build_grid : Model.t -> Trace.t -> t * step_id list
+val build_grid : ?rule:(string option) -> Model.t -> Trace.t -> t * step_id list
 
 val symmetrize_binding_constrs : t -> t
 
