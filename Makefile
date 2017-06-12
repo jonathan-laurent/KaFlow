@@ -2,7 +2,7 @@ KaFlow: KaFlow.native
 	cp $< $@
 
 KaFlow.native:
-	ocamlbuild $@
+	ocamlbuild -use-ocamlfind $@
 
 clean:
 	rm -rf _build KaFlow KaFlow.native

@@ -12,15 +12,15 @@ module Int_std_map = Map.Make (Int)
 (******************************************************************************)
 
 type var_info = {
-  modified_in_t : unit Int_map.t ;
-  set_to_def_in_t : unit Int_map.t ;
+  modified_in_t : unit History.t ;
+  set_to_def_in_t : unit History.t ;
   last_tested_to_def_in_sigma : step_id ;
   potential_closing_deps : step_id list
 }
 
 let def_var_info = {
-  modified_in_t = Int_map.empty ;
-  set_to_def_in_t = Int_map.empty ;
+  modified_in_t = History.empty ;
+  set_to_def_in_t = History.empty ;
   last_tested_to_def_in_sigma = -1 ; (* Never tested to def *)
   potential_closing_deps = []
 }
@@ -32,12 +32,12 @@ let get_var_info x tbl =
 let add_mod_in_t i x tbl =
   let old = get_var_info x tbl in
   Hashtbl.replace tbl (Var x)
-    { old with modified_in_t = Int_map.add i () (old.modified_in_t)}
+    { old with modified_in_t = History.add i () (old.modified_in_t)}
 
 let add_set_def_in_t i x tbl =
   let old = get_var_info x tbl in
   Hashtbl.replace tbl (Var x)
-    { old with set_to_def_in_t = Int_map.add i () (old.set_to_def_in_t)}
+    { old with set_to_def_in_t = History.add i () (old.set_to_def_in_t)}
 
 let add_potential_closing_dep x dep tbl =
   let old = get_var_info x tbl in
@@ -86,10 +86,12 @@ let init_var_infos
 
 (*
 
-The algorithm to compute causal cores is greedy. It works by progressively
-expanding a subset of events sigma as follows:
+The algorithm to compute causal cores is greedy and relies on the
+regularity hypothesis. It works by progressively
+expanding a subset of events `sigma` as follows:
 
 Initially, sigma only contains the event of interest.
+Then, it grows by the two following rules:
 [Ra] If an event is in sigma, its strong dependencies should be added to sigma
 [Rd] If an event e altering a variable x is in sigma and there is an ulterior
 event in sigma testing x to its default value, then add to sigma the first
@@ -100,15 +102,18 @@ We stop when no rule can apply. Besides, we can prove the rules are confluent.
 Lemma: if no rule can be applied, then sigma yields a valid subtrace
 Proof: it is enough to prove that every dependency is respected.
 This is trivial for strong dependencies. Then, let's suppose
-event e in sigma requires x=0. Then, let's look at the last event before
-e in sigma modifying x (it necesessarily exists, even if it is `init`).
+event e in sigma requires x=0. Then, let's look at the last event e' in sigma
+before e modifying x (it necesessarily exists, even if it is `init`).
 If it sets x to 0, we're done. Otherwise, the next event in t altering
-x should be in sigma. Because t is valid, this event should come before
+x should be in sigma (because it has to read x by regularity and so 
+e' strongly depends on it).  Because t is valid, this event should come before
 e. Contradiction.
 
-Lemma: if no rule can be applied, sigma strongly matches t (needs regularity)
+Notes:
+  + Init events are necessarily selected because there are logical sites for
+    agent existence.
 
-As opposed as what I once thought, no regularity hypothesis is needed.
+Lemma: if no rule can be applied, sigma strongly matches t (needs regularity)
 
 *)
 
@@ -148,7 +153,7 @@ let compute_causal_core
 
           (* Look for strong dependencies *)
           if v <> Grid.default env x then
-            match Int_map.last_before i infos.modified_in_t with
+            match History.last_before i infos.modified_in_t with
             | None -> ()
             | Some (dep, ()) -> Queue.push dep strong_deps
 
@@ -167,7 +172,7 @@ let compute_causal_core
       mods |> List.iter (fun (Constr (x, v)) ->
           if v <> Grid.default env x then
             let infos = get_var_info x var_infos in
-            match Int_map.first_after i infos.set_to_def_in_t with
+            match History.first_after i infos.set_to_def_in_t with
             | None -> ()
             | Some (clos, ()) ->
               if infos.last_tested_to_def_in_sigma > clos then
