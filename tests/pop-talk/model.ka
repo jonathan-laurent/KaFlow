@@ -1,0 +1,66 @@
+# Simulate for 1500s
+
+# Agent declarations
+%agent: S(mr)
+%agent: MR(s, k)
+%agent: K(mr, tf~u~p)
+%agent: TF(k, np~u~p, nucleus~out~in)
+%agent: NP(tf)
+
+
+# Reception of the signalling molecule
+'S.MR' S(mr), MR(s) -> S(mr!1), MR(s!1) @ 2E2 * 'on_rate'
+'S/MR' S(mr!1), MR(s!1) -> S(mr), MR(s) @ 'off_rate'
+
+# The chemical signal decays spontaneously
+'-S'  S() -> @ 0
+
+# A S-bound membrane receptor can phosphorylate K
+'K.MR' K(mr), MR(k) -> K(mr!1), MR(k!1) @ 3E-2 *'on_rate'
+'K/MR' K(mr!1), MR(k!1) -> K(mr), MR(k) @ 3E-2 *'off_rate'
+'pK'   S(mr!1), MR(s!1, k!2), K(mr!2, tf~u) -> \
+       S(mr!1), MR(s!1, k!2), K(mr!2, tf~p) @ 3E-2 * 'mod_rate'
+'uK'   K(tf~p) -> K(tf~u) @ 5E-3 * 'mod_rate' 
+
+
+# The kinase K catalyzes the phosphorylation of TF
+'TF.K'  TF(k), K(tf) -> TF(k!1), K(tf!1) @ 'on_rate'
+'TF/Ku' TF(k!1), K(tf~u!1) -> TF(k), K(tf~u) @ 2E2 * 'off_rate'
+'TF/Kp' TF(k!1), K(tf~p!1) -> TF(k), K(tf~p) @ 'off_rate'
+'pTF'   TF(k!1, np~u), K(tf!1) -> \
+	    TF(k!1, np~p), K(tf!1) @ 1E-1 * 'mod_rate'
+'uTF'   TF(np~p) -> TF(np~u) @ 'mod_rate'
+
+# A phosphorylated transcription factor binds the nuclear pore
+'TF.NP' TF(np~p), NP(tf) -> TF(np~p!1), NP(tf!1) @ 1E1 *'on_rate' 
+'TF/NP' TF(np!1), NP(tf!1) -> TF(np), NP(tf) @ 1E1 * 'off_rate'
+
+# Entering and exiting the nucleus
+'TF_in'  NP(tf!1), TF(np!1, nucleus~out, k) -> \
+	     NP(tf), TF(np, nucleus~in, k) @ 1E2 * 'mod_rate'
+'TF_out' TF(nucleus~in) -> TF(nucleus~out) @ 5E-3 * 'mod_rate'
+
+
+
+# Rates and constants
+%var: 'AV'             3E3 # M^(-1)
+%var: 'on_rate'        1 / 'AV'
+%var: 'off_rate'       1
+%var: 'mod_rate'       1
+%var: 'C0'             1 * 'AV'
+
+%init: 1 * 'C0'  K(), MR()
+%init: 1 * 'C0'  TF()
+%init: 1 * 'C0'  NP()
+
+#%obs: 'Kp' |K(s~p)|
+%obs: 'Signal' |S()| / 'AV'
+%var: 'Raw TF in nucleus' |TF(nucleus~in)|
+%obs: 'TF in nucleus' 'Raw TF in nucleus'  / 'AV'
+
+
+%mod: [T] > 700 do $ADD 5E-1 * 'C0' S()
+%mod: [T] > 720 do $DEL 5E-1 * 'C0' S()
+
+%mod: [T] > 600 do $TRACK 'Raw TF in nucleus' [true]
+%mod: [T] > 800 do $TRACK 'Raw TF in nucleus' [false]
