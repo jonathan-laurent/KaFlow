@@ -94,7 +94,7 @@ let main () =
         incr counter ;
         printf "Computing core %d/%d.\r" !counter n_eois ;
         flush stdout ;
-        let prec = Precedence.compute_precedence steps grid core in
+        let prec = Precedence.compute_precedence steps grid (Causal_core.core_events core) in
         let prec = Precedence.transitive_reduction prec in
         
         let oc = open_out (output_file_name !counter eoi) in

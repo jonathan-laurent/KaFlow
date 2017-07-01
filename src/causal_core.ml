@@ -219,3 +219,11 @@ let iter_causal_cores
 
 
  let core_events = List.map fst
+
+(**********************************)
+
+let var_infos_of_grid env g last_step =
+  let var_infos : (var', var_info) Hashtbl.t = Hashtbl.create (last_step / 4) in
+  init_var_infos env g last_step var_infos ; var_infos
+
+let causal_core_of_eois env g var_info eois = [] (* TODO *)

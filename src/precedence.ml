@@ -1,11 +1,12 @@
+open Causal_core_shared
 open Causal_core_util
 
 open Grid
 
 let constr_var (Constr (x, _v)) = Var x
 
-let compute_precedence (t : Trace.t) (g : grid) (core : Causal_core.causal_core) =
-  let sub = Causal_core.core_events core in
+let compute_precedence (t : Trace.t) (g : grid) (core : step_id list) =
+  let sub = core in
   let varmod = Hashtbl.create (List.length sub) in
   sub |> List.iter (fun i ->
       let (_tests, mods) = g.(i) in
@@ -37,7 +38,7 @@ let transitive_reduction prec =
 let compute_strong_deps
     (env : Model.t) 
     (g : grid) 
-    (core : Causal_core.causal_core) =
+    (core : step_id list) =
 
   let deps = Queue.create () in
   let state = Hashtbl.create (List.length core) in
@@ -61,5 +62,5 @@ let compute_strong_deps
     mods |> List.iter (fun (Constr (x, _v) as c) ->
         Hashtbl.replace state (Var x) (c, i) ) in
 
-  List.iter process_event (Causal_core.core_events core);
+  List.iter process_event core;
   list_of_queue deps

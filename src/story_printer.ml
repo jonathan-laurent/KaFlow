@@ -208,7 +208,7 @@ let print ?(options=def_options_simple) env ta grid fmt (evs, prec) =
 
   if options.show_strong_deps then
     begin
-      let deps = Precedence.compute_strong_deps env grid evs in
+      let deps = Precedence.compute_strong_deps env grid (Causal_core.core_events evs) in
       (*print_int (List.length deps) ;
       print_newline () ; *)
       deps |> List.iter (print_strong_dep_arrow options env fmt)
