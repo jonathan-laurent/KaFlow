@@ -5,7 +5,7 @@ open Grid
 
 let constr_var (Constr (x, _v)) = Var x
 
-let compute_precedence (t : Trace.t) (g : grid) (core : step_id list) =
+let compute_precedence (g : grid) (core : step_id list) =
   let sub = core in
   let varmod = Hashtbl.create (List.length sub) in
   sub |> List.iter (fun i ->
