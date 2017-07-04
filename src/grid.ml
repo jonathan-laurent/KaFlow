@@ -1,6 +1,3 @@
-open Causal_core_shared
-open Causal_core_util
-
 type concrete_agent = Instantiation.concrete
 type concrete_site  = Instantiation.concrete Instantiation.site
 type internal_state = Instantiation.internal_state
@@ -22,10 +19,6 @@ type constr =
 
 type constrs = constr list
 
-type grid = (constrs * constrs) array (* tests, mods *)
-
-type t = grid
-
 let default : type a . Model.t -> a var -> a = fun env v ->
   match v with
   | Internal_state (ag, s) ->
@@ -41,21 +34,6 @@ let default : type a . Model.t -> a var -> a = fun env v ->
   | Agent_existence _ -> false
 
 
-let dumb_grid_row = ([], [])
-
-let init_global_state size = Hashtbl.create size
-
-let update_global_state constrs st =
-  constrs |> List.iter
-    (fun (Constr (x, v)) -> Hashtbl.replace st (Var x) (Constr (x, v)))
-
-let query_global_state var st : constr option =
-  match Hashtbl.find_all st var with
-  | []  -> None
-  | [c] -> Some c
-  | _   -> assert false
-
-
 let translate_action = function
    | Instantiation.Create (ag, site_inits) ->
     let tr_site (s, optst) =
@@ -66,7 +44,7 @@ let translate_action = function
       end
     in
     Constr (Agent_existence ag, true) ::
-    flatten_list_option (List.map tr_site site_inits)
+    Causal_core_util.flatten_list_option (List.map tr_site site_inits)
 
   | Instantiation.Mod_internal (site, st) ->
     [Constr (Internal_state site, st)]
@@ -78,7 +56,7 @@ let translate_action = function
     [Constr (Agent_existence ag, false)]
 
 
-let translate_test global_state = function
+let translate_test (query_var : var' -> constr option) = function
 
   | Instantiation.Is_Here ag -> [Constr (Agent_existence ag, true)]
   | Instantiation.Has_Internal (site, st) -> [Constr (Internal_state site, st)]
@@ -89,35 +67,22 @@ let translate_test global_state = function
   (* We freeze the exact bond that is used *)
   | Instantiation.Is_Bound site | Instantiation.Has_Binding_type (site, _) ->
     begin
-      match query_global_state (Var (Binding_state site)) global_state with
-      | None -> assert false
+      match query_var (Var (Binding_state site)) with
       | Some ((Constr (Binding_state _, Bound _)) as c) -> [c]
-      | Some _  -> assert false
+      | None -> assert false
+      | Some (Constr (Binding_state _, Free)) -> assert false
+      | Some (Constr (Internal_state _, _)) -> assert false
+      | Some (Constr (Agent_existence _, _))  -> assert false
     end
-
+    
 
 let translate_actions actions =
   List.concat (List.map translate_action actions)
 
-let translate_tests global_state tests =
-  List.concat (List.map (translate_test global_state) tests)
+let translate_tests ~query_state tests =
+  List.concat (List.map (translate_test query_state) tests)
 
-
-let symmetrize_binding_constrs g =
-  let sym (Constr (x, v) as c) =
-    match x with
-    | Binding_state s ->
-      begin
-        match v with
-        | Free -> [c]
-        | Bound s' -> [c ; Constr (Binding_state s', Bound s)]
-      end
-    | Agent_existence _ -> [c]
-    | Internal_state _  -> [c] in
-
-  let sym_cs cs = cs |> List.map sym |> List.concat |> List.sort_uniq compare in
-  let aux (tests, mods) = (sym_cs tests, sym_cs mods) in
-  Array.map aux g
+(*
 
 
 let build_grid ?(rule=None) (env : Model.t) (t : Trace.t) =
@@ -157,8 +122,7 @@ let build_grid ?(rule=None) (env : Model.t) (t : Trace.t) =
   Array.iteri process_step ta ;
   (symmetrize_binding_constrs grid, list_of_queue eois)
 
-
-
+*)
 
 open Format
 
