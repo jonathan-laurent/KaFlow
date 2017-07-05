@@ -48,7 +48,11 @@ let get_var_info x tbl =
     let infos = def_var_info () in
     Hashtbl.add tbl (Var x) infos ;
     infos
-    end
+  end
+  
+let get_modifications_history x tbl =
+  try (Hashtbl.find tbl (Var x)).modified_in_t
+  with Not_found -> History.empty
 
 let add_potential_closing_dep x dep tbl =
   let infos = get_var_info x tbl in

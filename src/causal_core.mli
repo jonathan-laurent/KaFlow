@@ -24,5 +24,7 @@ type var_info_table
 val init_var_infos :
   ?last_step_id:step_id -> Trace_explorer.t -> var_info_table
 
+val get_modifications_history : 'a Grid.var -> var_info_table -> History.t
+
 val compute_causal_core :
   Trace_explorer.t -> var_info_table -> step_id list -> t
