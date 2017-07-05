@@ -6,6 +6,10 @@ val load_from_file : string -> t
 
 val model : t -> Model.t
 
+val step : step_id -> t -> Trace.step
+
+val last_step_id : t -> step_id
+
 val fold : 
   init:'a -> (int -> Trace.step -> 'a -> 'a) -> t -> 'a
 
@@ -13,7 +17,7 @@ val fold :
 module Grid :
 sig
 
-  val build_grid : t -> unit
+  val build : t -> unit
 
   val tests : step_id -> t -> Grid.constr list
 

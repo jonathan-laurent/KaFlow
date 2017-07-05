@@ -96,10 +96,13 @@ let introduced_agent_sorts actions_list =
   |> flatten_list_option
 
 
-let print_event options env ta grid color_handle f (i, info) =
+let print_event options te color_handle f (i, info) =
 
+  let env = Trace_explorer.model te in 
   let pr x = Format.fprintf f x in
-  let (tests, actions) = grid.(i) in
+
+  let actions = Trace_explorer.Grid.actions i te in
+  let tests = Trace_explorer.Grid.tests i te in
   
   if options.dump_grid then
     begin
@@ -114,7 +117,7 @@ let print_event options env ta grid color_handle f (i, info) =
 
   let annot = 
     begin
-      match ta.(i) with
+      match Trace_explorer.step i te with
       | Trace.Rule (rule_id, ev, _) ->
         { def_annot with 
         label = asprintf "%s" (rule_ast_name env rule_id) }
@@ -165,10 +168,10 @@ let print_strong_dep_arrow options env fmt (dest, constr, src) =
         (print_constr env "=") constr
     end
 
-let event_time ta i = 
+let event_time te i = 
   let open Trace in 
   let open Simulation_info in
-  match ta.(i) with
+  match Trace_explorer.step i te with
   | Subs _ -> 0.0
   | Rule (_, _, infos) -> infos.story_time
   | Init _ -> 0.0
@@ -177,7 +180,7 @@ let event_time ta i =
   | Dummy _ -> 0.0
   
 
-let print ?(options=def_options_simple) env ta grid fmt (evs, prec) =
+let print ?(options=def_options_simple) te fmt (evs, prec) =
 
   let choose_color =
     match options.nodes_coloring with
@@ -188,12 +191,13 @@ let print ?(options=def_options_simple) env ta grid fmt (evs, prec) =
         (0., 0., 1.0 -. 0.5 *. float_of_int (n - i) /. float_of_int n)
     | Time ->
       let maxT = list_maximum 
-          (List.map (fun (i, _) -> event_time ta i) evs) in
+          (List.map (fun (i, _) -> event_time te i) evs) in
       fun i _ ->
-        let t = event_time ta i in
+        let t = event_time te i in
         (0., 0., (1.0 -. 0.4 *. t /. maxT)) in
         
   let pr x = Format.fprintf fmt x in
+  let env = Trace_explorer.model te in
 
   pr "@[<v 2>digraph G{@;" ;
   pr "rankdir=\"TB\";@;" ;
@@ -201,14 +205,14 @@ let print ?(options=def_options_simple) env ta grid fmt (evs, prec) =
   pr "node [fontname=\"%s\"];@;" options.font ;
   pr "edge [fontname=\"%s\"];@;" options.font ;
   pr "@;" ;
-  evs  |> List.iter (print_event options env ta grid choose_color fmt) ;
+  evs  |> List.iter (print_event options te choose_color fmt) ;
   pr "@;" ;
   prec |> List.iter (print_prec_arrow options fmt) ;
   pr "@;" ;
 
   if options.show_strong_deps then
     begin
-      let deps = Precedence.compute_strong_deps env grid (Causal_core.core_events evs) in
+      let deps = Precedence.compute_strong_deps te (Causal_core.core_events evs) in
       (*print_int (List.length deps) ;
       print_newline () ; *)
       deps |> List.iter (print_strong_dep_arrow options env fmt)

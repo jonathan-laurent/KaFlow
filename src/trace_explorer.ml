@@ -31,6 +31,10 @@ let load_from_file f =
     ) (fun _ -> ()) f in
   init model (array_of_queue q)
 
+let step i te = te.trace.(i)
+
+let last_step_id t = Array.length t.trace - 1
+
 let fold ~init f t = 
   Tools.array_fold_lefti (fun i s acc -> f i acc s) init t.trace
 
@@ -58,7 +62,7 @@ module Grid = struct
     | _   -> assert false
 
 
-  let build_grid t =
+  let build t =
 
     let n = trace_size t in
     let grid_tests = Array.make n [] in

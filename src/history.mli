@@ -3,6 +3,8 @@
 
   type t
 
+  val empty : t
+
   val from_queue : int Queue.t -> t
 
   val first_after : int -> t -> int option

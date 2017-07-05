@@ -1,3 +1,3 @@
 #!/bin/sh
 
-../build.sh 15
+../build.sh 15 --verbose

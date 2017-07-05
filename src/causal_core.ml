@@ -5,79 +5,104 @@ open Grid
 
 module Int_set = Set.Make (Int)
 
-module Int_std_map = Map.Make (Int)
+module Int_map = Map.Make (Int)
 
 (******************************************************************************)
 (* Variables information cache                                                *)
 (******************************************************************************)
 
 type var_info = {
-  modified_in_t : unit History.t ;
-  set_to_def_in_t : unit History.t ;
-  last_tested_to_def_in_sigma : step_id ;
-  potential_closing_deps : step_id list
+  modified_in_t : History.t ;
+  set_to_def_in_t : History.t ;
+  mutable last_tested_to_def_in_sigma : step_id ;
+  mutable potential_closing_deps : step_id list
 }
 
-let def_var_info = {
+type var_info_table = (var', var_info) Hashtbl.t
+
+
+let def_var_info () = {
   modified_in_t = History.empty ;
   set_to_def_in_t = History.empty ;
   last_tested_to_def_in_sigma = -1 ; (* Never tested to def *)
   potential_closing_deps = []
 }
 
+let init_var_info modified_in_t set_to_def_in_t = {
+  modified_in_t = History.from_queue modified_in_t ;
+  set_to_def_in_t = History.from_queue set_to_def_in_t ;
+  last_tested_to_def_in_sigma = -1 ; (* Never tested to def *)
+  potential_closing_deps = []
+}
+
+let clear_var_infos t = 
+  t |> Hashtbl.iter (fun _ infos ->
+    infos.last_tested_to_def_in_sigma <- (-1) ;
+    infos.potential_closing_deps <- [] ;
+  )
+
 let get_var_info x tbl =
   try Hashtbl.find tbl (Var x)
-    with Not_found -> def_var_info
-
-let add_mod_in_t i x tbl =
-  let old = get_var_info x tbl in
-  Hashtbl.replace tbl (Var x)
-    { old with modified_in_t = History.add i () (old.modified_in_t)}
-
-let add_set_def_in_t i x tbl =
-  let old = get_var_info x tbl in
-  Hashtbl.replace tbl (Var x)
-    { old with set_to_def_in_t = History.add i () (old.set_to_def_in_t)}
+  with Not_found ->
+    begin
+    let infos = def_var_info () in
+    Hashtbl.add tbl (Var x) infos ;
+    infos
+    end
 
 let add_potential_closing_dep x dep tbl =
-  let old = get_var_info x tbl in
-  let newer =
-    { old with potential_closing_deps = dep :: old.potential_closing_deps} in
-  Hashtbl.replace tbl (Var x) newer
+  let infos = get_var_info x tbl in
+  infos.potential_closing_deps <- dep :: infos.potential_closing_deps
 
 let set_potential_closing_deps x deps tbl =
-  let old = get_var_info x tbl in
-  let newer =
-    { old with potential_closing_deps = deps } in
-  Hashtbl.replace tbl (Var x) newer
+  let infos = get_var_info x tbl in
+  infos.potential_closing_deps <- deps
 
 (* Returns true if there was an effective update *)
 let update_last_tested_to_def i x tbl =
-  let old = get_var_info x tbl in
-  if i > old.last_tested_to_def_in_sigma then
-    let newer =
-      { old with last_tested_to_def_in_sigma = i} in
-    Hashtbl.replace tbl (Var x) newer ;
+  let infos = get_var_info x tbl in
+  if i > infos.last_tested_to_def_in_sigma then
+  begin
+    infos.last_tested_to_def_in_sigma <- i ;
     true
+  end
   else false
 
-type var_info_table = (var', var_info) Hashtbl.t
 
 (* Cache some informations on how variables are modified *)
 
-let init_var_infos
-    (env : Model.t)
-    (g : grid)
-    (last_step : step_id)
-    (var_infos : var_info_table) =
+let init_var_infos ?last_step_id te =
+
+  let last_step = 
+    match last_step_id with
+    | None -> Trace_explorer.last_step_id te
+    | Some s -> s in
+
+  let env = Trace_explorer.model te in
+  let cache = Hashtbl.create (last_step / 4) in
+  let get x = 
+    try Hashtbl.find cache (Var x)
+    with Not_found ->
+      let v = (Queue.create (), Queue.create ()) in
+      begin Hashtbl.add cache (Var x) v ; v end in
 
   for i = 0 to last_step do
-    let (_tests, mods) = g.(i) in
+    let mods = Trace_explorer.Grid.actions i te in    
     mods |> List.iter (fun (Constr (x, v)) ->
-        add_mod_in_t i x var_infos ;
+        let mod_in_t, set_def_in_t = get x in
+        Queue.push i mod_in_t ;
         if v = Grid.default env x then
-          add_set_def_in_t i x var_infos )
-  done
+          Queue.push i set_def_in_t )
+  done ;
+
+  let var_infos = Hashtbl.create (last_step / 4) in
+  cache |> Hashtbl.iter (fun x (mod_in_t, set_def_in_t) ->
+    Hashtbl.add var_infos x (init_var_info mod_in_t set_def_in_t)
+  ) ;
+  var_infos
+
+
+
 
 
 (******************************************************************************)
@@ -126,27 +151,30 @@ type causal_core = (step_id * sigma_event_info) list
 type t = causal_core
 
 let compute_causal_core
-    (env : Model.t)
-    (g : grid)
+    (te : Trace_explorer.t)
     (var_infos : var_info_table) (* Not modified *)
-    (eoi : step_id) =
+    (eois : step_id list) =
 
-  let var_infos = Hashtbl.copy var_infos in
+  let env = Trace_explorer.model te in
+
+  clear_var_infos var_infos ;
 
   let strong_deps : step_id Queue.t = Queue.create () in
   let closing_deps : step_id Queue.t = Queue.create () in
-  let sigma : sigma_event_info Int_std_map.t ref = ref (Int_std_map.empty) in
+  let sigma : sigma_event_info Int_map.t ref = ref (Int_map.empty) in
   let counter : int ref = ref 0 in
 
   let add_to_sigma i =
-    if not (Int_std_map.mem i !sigma) then
+    if not (Int_map.mem i !sigma) then
     begin
 
       (* Add into the sigma set *)
-      sigma := Int_std_map.add i {number_added = !counter} !sigma;
+      sigma := Int_map.add i {number_added = !counter} !sigma;
       counter := !counter + 1 ;
 
-      let (tests, mods) = g.(i) in
+      let mods = Trace_explorer.Grid.actions i te in
+      let tests = Trace_explorer.Grid.tests i te in
+
       tests |> List.iter (fun (Constr (x, v)) ->
 
           let infos = get_var_info x var_infos in
@@ -155,7 +183,7 @@ let compute_causal_core
           if v <> Grid.default env x then
             match History.last_before i infos.modified_in_t with
             | None -> ()
-            | Some (dep, ()) -> Queue.push dep strong_deps
+            | Some dep -> Queue.push dep strong_deps
 
           (* Update cdep waiting lists *)
           else
@@ -174,7 +202,7 @@ let compute_causal_core
             let infos = get_var_info x var_infos in
             match History.first_after i infos.set_to_def_in_t with
             | None -> ()
-            | Some (clos, ()) ->
+            | Some clos ->
               if infos.last_tested_to_def_in_sigma > clos then
                 (* Add as a closing dependency *)
                 Queue.push clos closing_deps
@@ -184,7 +212,7 @@ let compute_causal_core
         )
     end in
 
-  add_to_sigma eoi ;
+  List.iter add_to_sigma eois ;
 
   let continue = ref true in
 
@@ -198,32 +226,22 @@ let compute_causal_core
   done ;
 
   let unordered_core = 
-      Int_std_map.fold (fun i info acc -> (i, info) :: acc) !sigma [] in
+      Int_map.fold (fun i info acc -> (i, info) :: acc) !sigma [] in
   List.sort (fun x y -> compare (fst x) (fst y)) unordered_core
 
 
 
 
 let iter_causal_cores
-    (env : Model.t) (g : grid) (eois : step_id list)
+    (te : Trace_explorer.t) (eois : step_id list)
     (handle : step_id -> causal_core -> unit) =
 
-  let last_eoi = list_maximum eois in
+  let last_step_id = list_maximum eois in
 
-  let var_infos : (var', var_info) Hashtbl.t = Hashtbl.create (last_eoi / 4) in
-
-  init_var_infos env g last_eoi var_infos ;
+  let var_infos = init_var_infos ~last_step_id te in
 
   eois |> List.iter (fun eoi ->
-      handle eoi (compute_causal_core env g var_infos eoi) )
-
+      handle eoi (compute_causal_core te var_infos [eoi]) ;
+  )
 
  let core_events = List.map fst
-
-(**********************************)
-
-let var_infos_of_grid env g last_step =
-  let var_infos : (var', var_info) Hashtbl.t = Hashtbl.create (last_step / 4) in
-  init_var_infos env g last_step var_infos ; var_infos
-
-let causal_core_of_eois env g var_info eois = [] (* TODO *)
