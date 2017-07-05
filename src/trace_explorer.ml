@@ -31,6 +31,8 @@ let load_from_file f =
     ) (fun _ -> ()) f in
   init model (array_of_queue q)
 
+let of_trace model trace = init model (Array.of_list trace)
+
 let step i te = te.trace.(i)
 
 let last_step_id t = Array.length t.trace - 1

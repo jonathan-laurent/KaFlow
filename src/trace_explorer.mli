@@ -4,6 +4,8 @@ type t
 
 val load_from_file : string -> t
 
+val of_trace : Model.t -> Trace.t -> t
+
 val model : t -> Model.t
 
 val step : step_id -> t -> Trace.step
