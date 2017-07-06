@@ -96,7 +96,7 @@ let introduced_agent_sorts actions_list =
   |> flatten_list_option
 
 
-let print_event options te color_handle f (i, info) =
+let print_event options te color_handle f gid (i, info) =
 
   let env = Trace_explorer.model te in 
   let pr x = Format.fprintf f x in
@@ -107,13 +107,13 @@ let print_event options te color_handle f (i, info) =
   if options.dump_grid then
     begin
     (*pr "/* %a */@;" (Trace.print_step ~compact:false ~env:env) ta.(i);*)
-    pr "/* EVENT : %d@;" i ;
+    pr "/* EVENT : %d@;" gid ;
     pr "   TESTS : @[<hov>%a@]@;"
       (Grid.print_tests env) tests ;
     pr "   MODS  : @[<hov>%a@]@;*/@;" 
       (Grid.print_actions env) actions ;
     end ;
-  pr "%d " i ;
+  pr "%d " gid ;
 
   let annot = 
     begin
@@ -133,7 +133,7 @@ let print_event options te color_handle f (i, info) =
 
   let annot = 
     if options.show_event_ids then
-      let decorated_name = sprintf "[%d] %s" i annot.label in
+      let decorated_name = sprintf "[%d] %s" gid annot.label in
       { annot with label = decorated_name }
     else annot in 
 
@@ -205,7 +205,7 @@ let print ?(options=def_options_simple) te fmt (evs, prec) =
   pr "node [fontname=\"%s\"];@;" options.font ;
   pr "edge [fontname=\"%s\"];@;" options.font ;
   pr "@;" ;
-  evs  |> List.iter (print_event options te choose_color fmt) ;
+  evs  |> List.iter (fun (i,info) -> print_event options te choose_color fmt i (i,info)) ;
   pr "@;" ;
   prec |> List.iter (print_prec_arrow options fmt) ;
   pr "@;" ;
