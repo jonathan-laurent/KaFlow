@@ -144,9 +144,9 @@ let print_event options te color_handle f gid name (i, info) =
   
 
 
-let print_prec_arrow options fmt (src, dest) =
-  fprintf fmt "%d -> %d [dir=none%s] @;" src dest
-    (if options.show_strong_deps then ", color=grey" else "")
+let print_prec_arrow options color fmt (src, dest) =
+  fprintf fmt "%d -> %d [dir=none, %s] @;" src dest
+    (if options.show_strong_deps then "color=grey" else asprintf "color=%a" print_hsv_color color)
 
 
 let important_constr c = 
@@ -155,16 +155,17 @@ let important_constr c =
   | Constr (Agent_existence _, _) -> false
   | _ -> true
 
-let print_strong_dep_arrow options env fmt (dest, constr, src) =
+let print_strong_dep_arrow options color env fmt (dest, constr, src) =
   if important_constr constr then
     let open Grid in
     begin
-      fprintf fmt "%d -> %d [%sfontsize=9] @[<h>// %a@]@;" src dest
+      fprintf fmt "%d -> %d [%sfontsize=9, color=%a] @[<h>// %a@]@;" src dest
         (if options.strong_deps_labels then
            let (Constr (x, _v)) = constr in
            asprintf "label=\"%a\", "
              (print_var env) (Var x)
          else "")
+         print_hsv_color color
         (print_constr env "=") constr
     end
 
@@ -207,7 +208,7 @@ let print ?(options=def_options_simple) te fmt (evs, prec) =
   pr "@;" ;
   evs  |> List.iter (fun (i,info) -> print_event options te choose_color fmt i (string_of_int i) (i,info)) ;
   pr "@;" ;
-  prec |> List.iter (print_prec_arrow options fmt) ;
+  prec |> List.iter (print_prec_arrow options (0.,0.,0.) fmt) ;
   pr "@;" ;
 
   if options.show_strong_deps then
@@ -215,7 +216,7 @@ let print ?(options=def_options_simple) te fmt (evs, prec) =
       let deps = Precedence.compute_strong_deps te (Causal_core.core_events evs) in
       (*print_int (List.length deps) ;
       print_newline () ; *)
-      deps |> List.iter (print_strong_dep_arrow options env fmt)
+      deps |> List.iter (print_strong_dep_arrow options (0.,0.,0.) env fmt)
     end ;
 
   pr "}@]@."
