@@ -37,6 +37,7 @@ let transitive_reduction prec =
 (* Also checks that the core is valid *)
 
 let compute_strong_deps
+    ?compute_all_activations:(compute_all_activations=false)
     (te : Trace_explorer.t)
     (core : step_id list) =
 
@@ -57,7 +58,7 @@ let compute_strong_deps
               Format.printf "Mismatch:@;%a@;%a@;" printer st printer c;
               assert false
             end ;
-          if v <> Grid.default env x then
+          if v <> Grid.default env x || compute_all_activations then
             Queue.push (i, c, src) deps
         with Not_found ->  assert false ) ;
 
