@@ -29,7 +29,7 @@ end
 
 let list_of_queue q = List.rev (Queue.fold (fun acc x -> x :: acc) [] q)
 
-let rule_ast_name env rule_id = 
-  Format.asprintf "%a" 
-    (Model.print_ast_rule ~env) 
+let rule_ast_name env rule_id =
+  Format.asprintf "%a"
+    (Model.print_ast_rule ~noCounters:true ~env)
     (Model.get_rule env rule_id).Primitives.syntactic_rule

@@ -19,7 +19,7 @@ type print_options =
     nodes_coloring     : nodes_coloring  ;
   }
 
-let def_options_detailed = 
+let def_options_detailed =
   { ranksep            = 1.0   ;
     show_strong_deps   = true  ;
     strong_deps_labels = true  ;
@@ -44,7 +44,7 @@ let print_hsv_color fmt (h, s, v) =
 
 type hsv_color = float * float * float
 
-type dot_annot = { 
+type dot_annot = {
   label : string ;
   shape : string ;
   style : string ;
@@ -58,7 +58,7 @@ let def_annot = {
   style = "filled" ;
   fillcolor = white }
 
-let shorten_str max str = 
+let shorten_str max str =
   let n = String.length str in
   if n > max then
     String.sub str 0 (min n (max - 3)) ^ "..."
@@ -69,16 +69,16 @@ let print_dot_annot fmt annot =
   fprintf fmt "[label=\"%s\", shape=%s, style=%s, fillcolor=%a]"
     annot.label annot.shape annot.style print_hsv_color annot.fillcolor
 
-let intro_name env s = 
+let intro_name env s =
   asprintf "Intro @[<h>%a@]"
     (Pp.list Pp.comma (Model.print_agent ~env)) s
   |> shorten_str max_intro_len
 
 
 let event_kind_dot_annot env = function
-  | Trace.RULE r_id -> 
-    { def_annot with 
-      label = asprintf "%a" (Model.print_ast_rule ~env) r_id }
+  | Trace.RULE r_id ->
+    { def_annot with
+      label = asprintf "%a" (Model.print_ast_rule ~noCounters:true ~env) r_id }
   (*| Trace.OBS obs_name ->
     { def_annot with label = obs_name ; shape = "rectangle" } *)
   | Trace.INIT s ->
@@ -87,8 +87,8 @@ let event_kind_dot_annot env = function
     { def_annot with label = s ; shape = "invhouse" }
 
 
-let introduced_agent_sorts actions_list = 
-  actions_list 
+let introduced_agent_sorts actions_list =
+  actions_list
   |> List.map (fun a ->
       match a with
       | Instantiation.Create (ag, _) -> Some (Agent.sort ag)
@@ -98,28 +98,28 @@ let introduced_agent_sorts actions_list =
 
 let print_event options te color_handle f gid name (i, info) =
 
-  let env = Trace_explorer.model te in 
+  let env = Trace_explorer.model te in
   let pr x = Format.fprintf f x in
 
   let actions = Trace_explorer.Grid.actions i te in
   let tests = Trace_explorer.Grid.tests i te in
-  
+
   if options.dump_grid then
     begin
     (*pr "/* %a */@;" (Trace.print_step ~compact:false ~env:env) ta.(i);*)
     pr "/* EVENT : %s@;" name ;
     pr "   TESTS : @[<hov>%a@]@;"
       (Grid.print_tests env) tests ;
-    pr "   MODS  : @[<hov>%a@]@;*/@;" 
+    pr "   MODS  : @[<hov>%a@]@;*/@;"
       (Grid.print_actions env) actions ;
     end ;
   pr "%d " gid ;
 
-  let annot = 
+  let annot =
     begin
       match Trace_explorer.step i te with
       | Trace.Rule (rule_id, ev, _) ->
-        { def_annot with 
+        { def_annot with
         label = asprintf "%s" (rule_ast_name env rule_id) }
       | Trace.Obs (obs_name, _, _) ->
         { def_annot with label = obs_name ; shape = "rectangle" }
@@ -131,17 +131,17 @@ let print_event options te color_handle f gid name (i, info) =
       | Trace.Subs _ | Trace.Dummy _ -> def_annot
     end in
 
-  let annot = 
+  let annot =
     if options.show_event_ids then
       let decorated_name = sprintf "[%s] %s" name annot.label in
       { annot with label = decorated_name }
-    else annot in 
+    else annot in
 
   let annot = { annot with fillcolor = color_handle i info } in
 
   print_dot_annot f annot ;
   pr "@;@;"
-  
+
 
 
 let print_prec_arrow options color fmt (src, dest) =
@@ -149,7 +149,7 @@ let print_prec_arrow options color fmt (src, dest) =
     (if options.show_strong_deps then "color=grey" else asprintf "color=%a" print_hsv_color color)
 
 
-let important_constr c = 
+let important_constr c =
   let open Grid in
   match c with
   | Constr (Agent_existence _, _) -> false
@@ -169,8 +169,8 @@ let print_strong_dep_arrow options color env fmt (dest, constr, src) =
         (print_constr env "=") constr
     end
 
-let event_time te i = 
-  let open Trace in 
+let event_time te i =
+  let open Trace in
   let open Simulation_info in
   match Trace_explorer.step i te with
   | Subs _ -> 0.0
@@ -179,7 +179,7 @@ let event_time te i =
   | Obs (_, _, infos) -> infos.story_time
   | Pert (_, _, infos) -> infos.story_time
   | Dummy _ -> 0.0
-  
+
 
 let print ?(options=def_options_simple) te fmt (evs, prec) =
 
@@ -187,16 +187,16 @@ let print ?(options=def_options_simple) te fmt (evs, prec) =
     match options.nodes_coloring with
     | Build_order ->
       let n = List.length evs in
-      fun _ cc_info -> 
+      fun _ cc_info ->
         let i = cc_info.Causal_core.number_added in
         (0., 0., 1.0 -. 0.5 *. float_of_int (n - i) /. float_of_int n)
     | Time ->
-      let maxT = list_maximum 
+      let maxT = list_maximum
           (List.map (fun (i, _) -> event_time te i) evs) in
       fun i _ ->
         let t = event_time te i in
         (0., 0., (1.0 -. 0.4 *. t /. maxT)) in
-        
+
   let pr x = Format.fprintf fmt x in
   let env = Trace_explorer.model te in
 
