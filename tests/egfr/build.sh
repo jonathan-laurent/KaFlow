@@ -1,3 +1,3 @@
 #!/bin/sh
 
-../build.sh 15 --verbose
+../build.sh "-syntax 3 -l 15" ""

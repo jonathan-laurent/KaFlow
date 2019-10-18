@@ -3,18 +3,19 @@
 # First argument: simulation time in second
 # Second argument: KaFlow arguments
 
-LEN=$1
-ARG=$2
+KASIM_ARGS=$1
+KAFLOW_ARGS=$2
 
 KAFLOW=../../../KaFlow
 
-echo "Building example in directory $1"
+echo "KaSim arguments: $KASIM_ARGS"
+echo "KaFlow arguments: $KAFLOW_ARGS"
 
 rm -rf output ; mkdir output ; cd output
 
-KaSim -syntax 3 -i ../*.ka -l $LEN -trace t.json
+KaSim $KASIM_ARGS -i ../*.ka -trace t.json
 
-$KAFLOW t.json -o "story." $ARG
+$KAFLOW t.json -o "story." $KAFLOW_ARGS
 
 for d in *.dot
 do

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-../build.sh 1600
+../build.sh "-syntax 3 -l 1600" ""
