@@ -1,3 +1,3 @@
 #!/bin/sh
 
-../build.sh "" "--precedence-only"
+../build.sh ""

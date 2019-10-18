@@ -11,7 +11,6 @@ type nodes_coloring =
 
 type print_options =
   { ranksep            : float  ;
-    precedence_only    : bool   ;  (* Not implemented yet *)
     show_strong_deps   : bool   ;
     strong_deps_labels : bool   ;
     dump_grid          : bool   ;
@@ -22,7 +21,6 @@ type print_options =
 
 let def_options_detailed =
   { ranksep            = 1.0   ;
-    precedence_only    = false ;
     show_strong_deps   = true  ;
     strong_deps_labels = true  ;
     dump_grid          = true  ;
@@ -33,7 +31,6 @@ let def_options_detailed =
 
 let def_options_simple =
   { ranksep            = 0.3    ;
-    precedence_only    = false  ;
     show_strong_deps   = false  ;
     strong_deps_labels = true   ;
     dump_grid          = false  ;
@@ -154,22 +151,6 @@ let print_weak_edge fmt (src, dest) =
 let print_arrow fmt (src, dest) =
   fprintf fmt "%d -> %d [color=black] @;" src dest
 
-let print_edges fmt options prec activations =
-  let important_set = Hashtbl.create (List.length activations) in
-  activations |> List.iter (fun (dest, _constr, src) ->
-    Hashtbl.add important_set (src, dest) ());
-  prec |> List.iter (fun e ->
-    let important = Hashtbl.mem important_set e in
-    if options.show_strong_deps then
-      (* We only want to emphasize the strong dependencies *)
-      print_weak_edge fmt e
-    else if options.precedence_only then
-      print_edge fmt e
-    else if important then
-      print_arrow fmt e
-    else
-      print_weak_edge fmt e)
-
 let important_constr c =
   let open Grid in
   match c with
@@ -202,7 +183,7 @@ let event_time te i =
   | Dummy _ -> 0.0
 
 
-let print ?(options=def_options_simple) te fmt (evs, prec) =
+let print ?(options=def_options_simple) te fmt (evs, prec, deps) =
 
   let choose_color =
     match options.nodes_coloring with
@@ -220,9 +201,6 @@ let print ?(options=def_options_simple) te fmt (evs, prec) =
 
   let pr x = Format.fprintf fmt x in
   let env = Trace_explorer.model te in
-  let activations =
-    Precedence.compute_strong_deps
-      ~compute_all_activations:true te (Causal_core.core_events evs) in
   pr "@[<v 2>digraph G{@;" ;
   pr "rankdir=\"TB\";@;" ;
   pr "ranksep=%.2f;@;" options.ranksep ;
@@ -231,12 +209,13 @@ let print ?(options=def_options_simple) te fmt (evs, prec) =
   pr "@;" ;
   evs  |> List.iter (fun (i,info) -> print_event options te choose_color fmt i (string_of_int i) (i,info)) ;
   pr "@;" ;
-  print_edges fmt options prec activations ;
+  prec |> List.iter (print_weak_edge fmt) ;
+  deps |> List.iter (print_arrow fmt) ;
   pr "@;" ;
 
   if options.show_strong_deps then
     begin
-      let deps = Precedence.compute_strong_deps te (Causal_core.core_events evs) in
+      let deps = Arrows.compute_strong_dependencies te (Causal_core.core_events evs) in
       (*print_int (List.length deps) ;
       print_newline () ; *)
       deps |> List.iter (print_strong_dep_arrow options (0.,0.,0.) env fmt)

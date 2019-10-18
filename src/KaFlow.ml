@@ -23,7 +23,7 @@ let options = [
   ("--eoi-id-in-filename", Arg.Set number_after_ev_id,
    "include the id of the corresponding event of interest in every causal core filename");
   ("--precedence-only", Arg.Set precedence_only,
-   "only show precedence edges (without distinguishing strong dependencies)");
+   "only show precedence edges (without distinguishing dependencies)");
   ("--verbose", Arg.Set verbose,
    "print annotated dot files")
 ]
@@ -109,16 +109,20 @@ let main () =
         incr counter ;
         printf "Computing core %d/%d.\r" !counter n_eois ;
         flush stdout ;
-        let prec = Precedence.compute_precedence te (Causal_core.core_events core) in
-        let prec = Precedence.transitive_reduction prec in
-
+        let evs = Causal_core.core_events core in
+        let prec = Arrows.compute_precedence te evs in
+        let prec = Arrows.transitive_reduction prec in
+        let deps =
+          if !precedence_only || !verbose then []
+          else Arrows.compute_dependencies te evs in
+        let deps = Arrows.transitive_reduction deps in
+        let prec = Arrows.set_difference prec deps in
         let oc = open_out (output_file_name !counter eoi) in
         let options =
             if !verbose then Story_printer.def_options_detailed
             else Story_printer.def_options_simple in
-        let options = {options with Story_printer.precedence_only = !precedence_only} in
         let fmt = Format.formatter_of_out_channel oc in
-        Story_printer.print ~options te fmt (core, prec) ;
+        Story_printer.print ~options te fmt (core, prec, deps) ;
         close_out oc
 
       in Causal_core.iter_causal_cores te eois process_core
